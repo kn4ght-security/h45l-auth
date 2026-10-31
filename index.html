@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RedstoneGuard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px;background:#090d16;color:#fff;font-family:Arial,sans-serif}
+.container{max-width:700px;margin:40px auto;padding:25px;background:#111827;border:1px solid #263247;border-radius:14px}
+h1{color:#60a5fa}
+input,textarea,button{width:100%;padding:13px;margin-top:12px;border-radius:8px;border:1px solid #34445d;background:#0b1220;color:white}
+textarea{min-height:220px;resize:vertical}
+button{background:#2563eb;border:0;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.5}
+#status{white-space:pre-wrap;overflow-wrap:anywhere}
+</style>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+<div class="container">
+<h1>RedstoneGuard</h1>
+<p>Protected Script Loader Generator</p>
+
+<input id="adminToken" type="password" placeholder="Admin Token">
+
+<textarea id="script" placeholder="Paste your Luau script here..."></textarea>
+
+<div class="cf-turnstile" data-sitekey="YOUR_TURNSTILE_SITE_KEY"></div>
+
+<button id="createButton">Create Protected Loader</button>
+<p id="status"></p>
+</div>
+
+<script>
+const button = document.getElementById("createButton");
+const status = document.getElementById("status");
+
+button.addEventListener("click", async () => {
+    const adminToken = document.getElementById("adminToken").value;
+    const source = document.getElementById("script").value;
+    const captcha = document.querySelector('[name="cf-turnstile-response"]')?.value || "";
+
+    if (!adminToken || !source.trim()) {
+        status.textContent = "Fill in all required fields.";
+        return;
+    }
+
+    if (!captcha) {
+        status.textContent = "Complete CAPTCHA first.";
+        return;
+    }
+
+    button.disabled = true;
+    status.textContent = "Processing...";
+
+    try {
+        const response = await fetch("/api/create-loader", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + adminToken
+            },
+            body: JSON.stringify({
+                source,
+                turnstileToken: captcha
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || "Request failed.");
+
+        status.textContent =
+            "Loader created!\n\nLoader URL:\n" +
+            data.loaderUrl +
+            "\n\nLoadstring:\n" +
+            data.loadstring;
+
+    } catch (error) {
+        status.textContent = error.message;
+    } finally {
+        button.disabled = false;
+        if (window.turnstile) window.turnstile.reset();
+    }
+});
+</script>
+</body>
+</html>
